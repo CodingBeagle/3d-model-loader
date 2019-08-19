@@ -11,13 +11,16 @@
 
 // The Windows API is used by including the Windows.h header.
 #include <Windows.h>
-#include <iostream>
 #include <string>
+
+#include <glad/glad.h>
+#include <KHR/khrplatform.h>
+#include <glad/glad_wgl.h>
 
 // Function prototypes
 LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-void WriteDebug(std::wstring message);
+void WriteDebug(std::string message);
 
 // The wWinMain entry point is used with the WINDOWS subsystem.
 // https://docs.microsoft.com/en-us/windows/win32/learnwin32/winmain--the-application-entry-point
@@ -52,12 +55,19 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	// A string that uniquely identifies the Window Class.
 	windowClass.lpszClassName = className;
 
+	// CS_OWNDC = Allocates a unique device context for each window in the class
+	// https://docs.microsoft.com/en-us/windows/win32/gdi/device-contexts
+	// A device context is a special set of values that applications use for drawing in the client area of
+	// their windows.
+	// THIS IS NEEDED FOR OpenGL
+	windowClass.style = CS_OWNDC;
+
 	// Now we register the Window Class with the operating system
 	// This has to be done before we can create a window using it
 	if (!RegisterClassEx(&windowClass))
 	{
-		std::wstring errorMessage = L"Failed to register class with error: ";
-		errorMessage += std::to_wstring(GetLastError());
+		std::string errorMessage = "Failed to register class with error: ";
+		errorMessage += std::to_string(GetLastError());
 		WriteDebug(errorMessage);
 		
 		return -1;
@@ -83,16 +93,135 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 	if (mainWindowHandle == nullptr)
 	{
-		WriteDebug(L"Failed to create main application window!");
+		WriteDebug("Failed to create main application window!");
 		return -1;
 	}
 
 	ShowWindow(mainWindowHandle, true);
 
+	// Set up OpenGL context
+	auto deviceContext = GetDC(mainWindowHandle);
+
+	// The struct PIXELFORMATDESCRIPTOR is used to describe the pixel format of a drawing surface of a device context
+	// A Pixel Format is a generic structure that describes the properties of the default framebuffer that the OpenGL context
+	// will use.
+	// Notice that the pixel format should NOT be set more than once in our case, as the device context references our main window.
+	// When we set the pixel format later, that function will also set the pixel format of our window, and setting the pixel format of a window
+	// should NOT be done more than once.
+	PIXELFORMATDESCRIPTOR pixelFormatDescriptor = {};
+
+	// Should always be sizeof(PIXELFORMATDESCRIPTOR)
+	pixelFormatDescriptor.nSize = sizeof(PIXELFORMATDESCRIPTOR);
+
+	// The version of the data structure. Should be set to 1.
+	pixelFormatDescriptor.nVersion = 1;
+
+	// A set of flags specifying properties of the pixel buffer.
+	// PFD_DRAW_TO_WINDOW = The buffer can draw to a window / device surface
+	// PFD_SUPPORT_OPENGL = The buffer supports OpenGL
+	// PFD_DOUBLEBUFFER = The buffer is double-buffered
+	pixelFormatDescriptor.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+
+	// Specifying the type of pixel data.
+	// PFD_TYPE_RGBA = RGBA pixels. Each pixel has four components: red, green, blue, and alpha.
+	pixelFormatDescriptor.iPixelType = PFD_TYPE_RGBA;
+
+	// For RGBA pixel types, this describes the size of the color buffer.
+	pixelFormatDescriptor.cColorBits = 32;
+
+	// Specifies the number of bits for the depth buffer.
+	pixelFormatDescriptor.cDepthBits = 24;
+
+	// Specifies the number of bits for the stencil buffer.
+	pixelFormatDescriptor.cStencilBits = 8;
+
+	// Now that we have a Pixel Format Descriptor, it has to be converted to a pixel format number.
+	// ChoosePixelFormat takes a device context, and a pixel format descriptor, and attempts to match
+	// a pixel format of the description by one supported by the device context.
+	// If this function returns 0, the call failed.
+	const auto pixelFormatNumber = ChoosePixelFormat(deviceContext, &pixelFormatDescriptor);
+	if (pixelFormatNumber == 0)
+	{
+		WriteDebug("Failed to match a pixel format.");
+		return -1;
+	}
+
+	// Now that we have a pixel format number, we can use it to set the pixel format of the
+	// window's device context.
+	const auto didSetPixelFormat = SetPixelFormat(deviceContext, pixelFormatNumber, &pixelFormatDescriptor);
+	if (!didSetPixelFormat)
+	{
+		WriteDebug("Failed to set pixel format of windows device context.");
+		return -1;
+	}
+
+	// Now that we've set the pixel format and thus described our framebuffer, we can create the OpenGL context.
+	// wglCreateContext creates a new OpenGL context and returns a handle to it
+	const auto openGlContextHandle = wglCreateContext(deviceContext);
+	if (openGlContextHandle == nullptr)
+	{
+		WriteDebug("Failed to create OpenGl dummy context!");
+		return -1;
+	}
+
+	// Before an OpenGL context can be used, it must be set to current.
+	const auto didMakeOpenGlContextCurrent = wglMakeCurrent(deviceContext, openGlContextHandle);
+	if (!didMakeOpenGlContextCurrent)
+	{
+		WriteDebug("Failed to make OpenGL dummy context current!");
+		return -1;
+	}
+
+	// Load OpenGL functions using GLAD
+	if (!gladLoadGL())
+	{
+		WriteDebug("Failed to initialize OpenGL GLAD!");
+		return -1;
+	}
+
+	// Load WGL extension functions using GLAD
+	// We need these for the extended WGL functions with more functionality for creating
+	// OpenGL contexts.
+	if (!gladLoadWGL(deviceContext))
+	{
+		WriteDebug("Failed to initialize WGL GLAD!");
+		return -1;
+	}
+
+	const int attribList[] =
+	{
+		WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+		WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+		WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+		WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+		WGL_COLOR_BITS_ARB, 32,
+		WGL_DEPTH_BITS_ARB, 24,
+		WGL_STENCIL_BITS_ARB, 8,
+		0 // End
+	};
+
+	int pixelFormat;
+	UINT numFormats;
+
+	const auto didChoosePixelFormatArb = wglChoosePixelFormatARB(deviceContext, attribList, nullptr, 1, &pixelFormat, &numFormats);
+	if (!didChoosePixelFormatArb)
+	{
+		WriteDebug("Failed to choose a pixel format ARB!");
+		return -1;
+	}
+	
+	std::string openGlVersion = "OpenGL version used: ";
+	openGlVersion.append((char*)glGetString(GL_VERSION));
+	
+	WriteDebug(openGlVersion);
+	
 	// Game Loop
 	MSG msg = {};
 	while (true)
 	{
+		glClearColor(1.0f, 0.f, 0.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+		
 		// When doing realtime applications, it's important to use PeekMessage to look for
 		// and remove potential messages, instead of GetMessage, as GetMessage is blocking.
 		// If the second parameter (hwnd) is NULL, PeekMessage will retrieve messages
@@ -122,6 +251,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		{
 			// Game logic here...
 		}
+
+		// TODO: Maybe try and research this SwapBuffers vs wglSwapLayerBuffers dilemma a bit more?
+		// When swapping buffers, it's recommended to use the SwapBuffers function instead of wglSwapLayerBuffers: https://www.khronos.org/opengl/wiki/Platform_specifics:_Windows
+		// SwapBuffers exchanges the front and back buffer if the current pixel format for the window
+		// referenced by the device context has a back buffer.
+		SwapBuffers(deviceContext);
 	}
 
 	DestroyWindow(mainWindowHandle);
@@ -159,8 +294,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-void WriteDebug(std::wstring message)
+void WriteDebug(std::string message)
 {
-	message += L"\n";
-	OutputDebugString(message.c_str());
+	message += "\n";
+	OutputDebugStringA(message.c_str());
 }
