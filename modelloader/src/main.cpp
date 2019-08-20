@@ -13,12 +13,7 @@
 #include <Windows.h>
 #include <string>
 
-#include <glad/glad.h>
-#include <glad/glad_wgl.h>
-
 #include "Window.h"
-
-void WriteDebug(std::string message);
 
 // The wWinMain entry point is used with the WINDOWS subsystem.
 // https://docs.microsoft.com/en-us/windows/win32/learnwin32/winmain--the-application-entry-point
@@ -79,10 +74,4 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	}
 	
 	return 0;
-}
-
-void WriteDebug(std::string message)
-{
-	message += "\n";
-	OutputDebugStringA(message.c_str());
 }
