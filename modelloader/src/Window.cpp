@@ -1,6 +1,7 @@
 #include "Window.h"
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+void APIENTRY OpenGlMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam);
 
 Window::Window(std::wstring windowTitle, int windowWidth, int windowHeight)
 {
@@ -15,14 +16,14 @@ Window::Window(std::wstring windowTitle, int windowWidth, int windowHeight)
 	const auto didDeleteDummyContext = wglDeleteContext(dummyOpenGlContext);
 	if (!didDeleteDummyContext)
 	{
-		OutputDebugStringA("Failed to delete dummy OpenGL context!");
+		OutputDebugStringA("Failed to delete dummy OpenGL context! \n");
 		assert(false);
 	}
 	
 	const auto didDestroyDummyWindow = DestroyWindow(dummyWindow);
 	if (!didDestroyDummyWindow)
 	{
-		OutputDebugStringA("Failed to destroy dummy window!");
+		OutputDebugStringA("Failed to destroy dummy window! \n");
 		assert(false);
 	}
 }
@@ -55,7 +56,7 @@ HWND Window::CreateBaseWindow(std::wstring windowTitle, int windowWidth, int win
 
 	if (!didGetModuleHandle)
 	{
-		OutputDebugStringA("Failed to get the application handle!");
+		OutputDebugStringA("Failed to get the application handle! \n");
 		assert(false);
 	}
 
@@ -97,7 +98,9 @@ HWND Window::CreateBaseWindow(std::wstring windowTitle, int windowWidth, int win
 		{
 			std::string errorMessage = "Failed to register class with error: ";
 			errorMessage += std::to_string(GetLastError());
-			OutputDebugStringA("Failed to register window class!");
+			errorMessage.append("\n");
+			
+			OutputDebugStringA("Failed to register window class! \n");
 		}
 	}
 
@@ -105,9 +108,11 @@ HWND Window::CreateBaseWindow(std::wstring windowTitle, int windowWidth, int win
 		0, // Optional window styles
 		windowClassName.c_str(), // Name of the Window Class to use
 		windowTitle.c_str(), // The text at the title bar of the window
-		WS_OVERLAPPEDWINDOW, // The Window Style
+		// The Window Style
+		// WS_OVERLAPPEDWINDOW gives the window a title bar, a border, and minimize / maximize buttons
+		WS_OVERLAPPEDWINDOW, 
 		// Size and Position
-		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+		CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight,
 		nullptr, // Parent Window
 		nullptr, // Menu
 		applicationHandle, // Instance Handle
@@ -116,7 +121,7 @@ HWND Window::CreateBaseWindow(std::wstring windowTitle, int windowWidth, int win
 
 	if (newWindowHandle == nullptr)
 	{
-		OutputDebugStringA("Failed to create main application window!");
+		OutputDebugStringA("Failed to create main application window! \n");
 		assert(false);
 	}
 
@@ -166,7 +171,7 @@ HGLRC Window::CreateBasicOpenGlContext(HDC deviceContext)
 	const auto pixelFormatNumber = ChoosePixelFormat(deviceContext, &pixelFormatDescriptor);
 	if (pixelFormatNumber == 0)
 	{
-		OutputDebugStringA("Failed to match a pixel format.");
+		OutputDebugStringA("Failed to match a pixel format. \n");
 		assert(false);
 	}
 
@@ -175,7 +180,7 @@ HGLRC Window::CreateBasicOpenGlContext(HDC deviceContext)
 	const auto didSetPixelFormat = SetPixelFormat(deviceContext, pixelFormatNumber, &pixelFormatDescriptor);
 	if (!didSetPixelFormat)
 	{
-		OutputDebugStringA("Failed to set pixel format of windows device context.");
+		OutputDebugStringA("Failed to set pixel format of windows device context. \n");
 		assert(false);
 	}
 
@@ -184,7 +189,7 @@ HGLRC Window::CreateBasicOpenGlContext(HDC deviceContext)
 	const auto openGlContextHandle = wglCreateContext(deviceContext);
 	if (openGlContextHandle == nullptr)
 	{
-		OutputDebugStringA("Failed to create OpenGl dummy context!");
+		OutputDebugStringA("Failed to create OpenGl dummy context! \n");
 		assert(false);
 	}
 
@@ -192,7 +197,7 @@ HGLRC Window::CreateBasicOpenGlContext(HDC deviceContext)
 	const auto didMakeOpenGlContextCurrent = wglMakeCurrent(deviceContext, openGlContextHandle);
 	if (!didMakeOpenGlContextCurrent)
 	{
-		OutputDebugStringA("Failed to make OpenGL dummy context current!");
+		OutputDebugStringA("Failed to make OpenGL dummy context current! \n");
 		assert(false);
 	}
 
@@ -204,7 +209,7 @@ HGLRC Window::CreateAdvanceOpenGlContext(HDC deviceContext)
 	// Load OpenGL functions using GLAD
 	if (!gladLoadGL())
 	{
-		OutputDebugStringA("Failed to initialize OpenGL GLAD!");
+		OutputDebugStringA("Failed to initialize OpenGL GLAD! \n");
 		assert(false);
 	}
 
@@ -213,7 +218,7 @@ HGLRC Window::CreateAdvanceOpenGlContext(HDC deviceContext)
 	// OpenGL contexts.
 	if (!gladLoadWGL(deviceContext))
 	{
-		OutputDebugStringA("Failed to initialize WGL GLAD!");
+		OutputDebugStringA("Failed to initialize WGL GLAD! \n");
 		assert(false);
 	}
 
@@ -240,14 +245,14 @@ HGLRC Window::CreateAdvanceOpenGlContext(HDC deviceContext)
 	const auto didChoosePixelFormatArb = wglChoosePixelFormatARB(deviceContext, attribList, nullptr, 1, &pixelFormat, &numFormats);
 	if (!didChoosePixelFormatArb)
 	{
-		OutputDebugStringA("Failed to choose a pixel format ARB!");
+		OutputDebugStringA("Failed to choose a pixel format ARB! \n");
 		assert(false);
 	}
 
 	const auto didSetPixelFormat = SetPixelFormat(deviceContext, pixelFormat, nullptr);
 	if (!didSetPixelFormat)
 	{
-		OutputDebugStringA("Failed to set pixel format!");
+		OutputDebugStringA("Failed to set pixel format! \n");
 		assert(false);
 	}
 	
@@ -269,18 +274,39 @@ HGLRC Window::CreateAdvanceOpenGlContext(HDC deviceContext)
 
 	if (!contextHandle)
 	{
-		OutputDebugStringA("Failed to create context!");
+		OutputDebugStringA("Failed to create context! \n");
 		assert(false);
 	}
 
 	const auto didMakeContextCurrent = wglMakeCurrent(deviceContext, contextHandle);
 	if (!didMakeContextCurrent)
 	{
-		OutputDebugStringA("Failed to make context current!");
+		OutputDebugStringA("Failed to make context current! \n");
 		assert(false);
 	}
 
+	// Debug messages will not be generated unless debug output is enabled
+	glEnable(GL_DEBUG_OUTPUT);
+	
+	// Set up OpenGL debug messaging using KHR_debug extension
+	glDebugMessageCallback(OpenGlMessageCallback, nullptr);
+
 	return contextHandle;
+}
+
+void APIENTRY OpenGlMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
+{
+	std::string sourceMessage = "Source: ";
+	sourceMessage.append(std::to_string(source));
+	sourceMessage.append("\n");
+
+	std::string errorMessage = message;
+	errorMessage.append("\n");
+	
+	OutputDebugStringA("**** OpenGL Error **** \n");
+	OutputDebugStringA(sourceMessage.c_str());
+	OutputDebugStringA(errorMessage.c_str());
+	OutputDebugStringA("********************** \n");
 }
 
 // Check to see if any messages are waiting in the queue
@@ -312,3 +338,4 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	// https://docs.microsoft.com/en-us/windows/win32/learnwin32/writing-the-window-procedure
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
+
