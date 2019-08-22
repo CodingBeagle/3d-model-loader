@@ -6,6 +6,7 @@
     <ClCompile Include="src\glad_wgl.c" />
     <ClCompile Include="src\Window.cpp" />
     <ClCompile Include="src\Shader.cpp" />
+    <ClCompile Include="src\Mesh.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="libs\glad\include\KHR\khrplatform.h" />
@@ -13,5 +14,6 @@
     <ClInclude Include="libs\glad\include\glad\glad_wgl.h" />
     <ClInclude Include="headers\Window.h" />
     <ClInclude Include="headers\Shader.h" />
+    <ClInclude Include="headers\Mesh.h" />
   </ItemGroup>
 </Project>

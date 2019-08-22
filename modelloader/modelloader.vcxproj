@@ -72,22 +72,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)bin\intermediates\$(Platform)\$(Configuration)\</IntDir>
-    <IncludePath>C:\repos\3d-model-loader\modelloader\libs\glm\include;C:\repos\3d-model-loader\modelloader\headers;C:\repos\3d-model-loader\modelloader\libs\glad\include;$(IncludePath)</IncludePath>
+    <IncludePath>C:\repos\3d-model-loader\modelloader\libs\assimp\include;C:\repos\3d-model-loader\modelloader\libs\glm\include;C:\repos\3d-model-loader\modelloader\headers;C:\repos\3d-model-loader\modelloader\libs\glad\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\repos\3d-model-loader\modelloader\libs\assimp\bin\debugx64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)bin\intermediates\$(Platform)\$(Configuration)\</IntDir>
-    <IncludePath>C:\repos\3d-model-loader\modelloader\libs\glm\include;C:\repos\3d-model-loader\modelloader\headers;C:\repos\3d-model-loader\modelloader\libs\glad\include;$(IncludePath)</IncludePath>
+    <IncludePath>C:\repos\3d-model-loader\modelloader\libs\assimp\include;C:\repos\3d-model-loader\modelloader\libs\glm\include;C:\repos\3d-model-loader\modelloader\headers;C:\repos\3d-model-loader\modelloader\libs\glad\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\repos\3d-model-loader\modelloader\libs\assimp\bin\debugx64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)bin\intermediates\$(Platform)\$(Configuration)\</IntDir>
-    <IncludePath>C:\repos\3d-model-loader\modelloader\libs\glm\include;C:\repos\3d-model-loader\modelloader\headers;C:\repos\3d-model-loader\modelloader\libs\glad\include;$(IncludePath)</IncludePath>
+    <IncludePath>C:\repos\3d-model-loader\modelloader\libs\assimp\include;C:\repos\3d-model-loader\modelloader\libs\glm\include;C:\repos\3d-model-loader\modelloader\headers;C:\repos\3d-model-loader\modelloader\libs\glad\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\repos\3d-model-loader\modelloader\libs\assimp\bin\debugx64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)bin\intermediates\$(Platform)\$(Configuration)\</IntDir>
-    <IncludePath>C:\repos\3d-model-loader\modelloader\libs\glm\include;C:\repos\3d-model-loader\modelloader\headers;C:\repos\3d-model-loader\modelloader\libs\glad\include;$(IncludePath)</IncludePath>
+    <IncludePath>C:\repos\3d-model-loader\modelloader\libs\assimp\include;C:\repos\3d-model-loader\modelloader\libs\glm\include;C:\repos\3d-model-loader\modelloader\headers;C:\repos\3d-model-loader\modelloader\libs\glad\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\repos\3d-model-loader\modelloader\libs\assimp\bin\debugx64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -98,7 +102,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>assimp-vc140-mt.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy "$(SolutionDir)modelloader\resources" "$(TargetDir)shaders" /i /y</Command>
@@ -113,7 +117,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>assimp-vc140-mt.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy "$(SolutionDir)modelloader\resources" "$(TargetDir)shaders" /i /y</Command>
@@ -132,7 +136,7 @@
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>assimp-vc140-mt.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy "$(SolutionDir)modelloader\resources" "$(TargetDir)shaders" /i /y</Command>
@@ -151,13 +155,14 @@
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>assimp-vc140-mt.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy "$(SolutionDir)modelloader\resources" "$(TargetDir)shaders" /i /y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Mesh.cpp" />
     <ClCompile Include="src\Shader.cpp" />
     <ClCompile Include="src\glad.c" />
     <ClCompile Include="src\glad_wgl.c" />
@@ -165,6 +170,7 @@
     <ClCompile Include="src\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="headers\Mesh.h" />
     <ClInclude Include="headers\Shader.h" />
     <ClInclude Include="headers\Window.h" />
     <ClInclude Include="libs\glad\include\glad\glad.h" />
