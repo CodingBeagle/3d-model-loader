@@ -70,6 +70,8 @@ float verticesCube[] = {
 // Function Prototypes
 std::vector<float> GetVertices(const aiNode* node, const aiScene* scene);
 
+std::vector<unsigned int> indices{};
+
 // The wWinMain entry point is used with the WINDOWS subsystem.
 // https://docs.microsoft.com/en-us/windows/win32/learnwin32/winmain--the-application-entry-point
 // This is the entry point we have to use when we want to create windowed applications
@@ -102,12 +104,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	// We use aiProcess_SortByPType to split up meshes with more than one primitive type into homogeneous sub-meshes.
 	// We use these two post-processing steps because, for real-time 3d rendering, we are only (usually) interested in rendering a set of triangles
 	// This way it will be easy for us to sort / ignore any other primitive type
-	const aiScene* scene = importer.ReadFile("shaders/chair.blend",
+	const aiScene* scene = importer.ReadFile("shaders/cartoon.fbx",
 		aiProcess_Triangulate | aiProcess_SortByPType);
 
-	std::vector<float> modelVertices = GetVertices(scene->mRootNode, scene);
-
-	int lol = 0;
+	auto modelVertices = GetVertices(scene->mRootNode, scene);
 	
 	// The Z-buffer of OpenGL allows OpenGL to decide when to draw over a pixel
 	// and when not to, based on depth testing.
@@ -126,6 +126,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
 
+	// Generate EBO
+	unsigned int EBO;
+	glGenBuffers(1, &EBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+	
 	// We generate an OpenGL buffer object
 	// OpenGL buffers can be used for many things. They are simply allocated memory which can be used
 	// to store whatever you want
@@ -184,7 +190,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	glBindVertexArray(VAO);
 
 	float rotation = 0;
-	float radius = 5.0f;
+	float radius = 800.0f;
 	
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -215,13 +221,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 		// Our projection matrix
 		glm::mat4 projection = glm::mat4(1.0f);
-		projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+		projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 1000000.0f);
 
 		myShader.setMatrix("model", trans);
 		myShader.setMatrix("view", view);
 		myShader.setMatrix("projection", projection);
 
-		glDrawArrays(GL_TRIANGLES, 0, modelVertices.size());
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		// glDrawArrays(GL_TRIANGLES, 0, modelVertices.size());
+
+		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
 		
 		// When doing realtime applications, it's important to use PeekMessage to look for
 		// and remove potential messages, instead of GetMessage, as GetMessage is blocking.
@@ -261,6 +270,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	return 0;
 }
 
+unsigned int globalIndiceCount = 0;
+
 std::vector<float> GetVertices(const aiNode* node, const aiScene* scene)
 {
 	std::vector<float> nodeVertices{};
@@ -276,15 +287,19 @@ std::vector<float> GetVertices(const aiNode* node, const aiScene* scene)
 		// Everything else we ignore for now
 		if (currentMesh->mPrimitiveTypes == aiPrimitiveType_TRIANGLE)
 		{
+			auto currentGlobalCount = globalIndiceCount;
+			
 			for (unsigned int j = 0; j < currentMesh->mNumVertices; j++)
 			{
 				auto currentVertex = currentMesh->mVertices[j];
-
+				
 				// Position
 				nodeVertices.push_back(currentVertex.x);
 				nodeVertices.push_back(currentVertex.y);
 				nodeVertices.push_back(currentVertex.z);
 
+				globalIndiceCount += 1;
+				
 				// Color
 				std::random_device rd;
 				std::mt19937 mt(rd());
@@ -294,6 +309,20 @@ std::vector<float> GetVertices(const aiNode* node, const aiScene* scene)
 				nodeVertices.push_back(dist(mt));
 				nodeVertices.push_back(dist(mt));
 			}
+
+			for (unsigned int q = 0; q < currentMesh->mNumFaces; q++)
+			{
+				const auto currentFace = currentMesh->mFaces[q];
+
+				for (unsigned int rofl = 0; rofl < currentFace.mNumIndices; rofl++)
+				{
+					const auto currentIndex = currentFace.mIndices[rofl] + (currentGlobalCount);
+					indices.push_back(currentIndex);
+				}
+			}
+		} else
+		{
+			OutputDebugStringA("MET NON TRIANGLE!");
 		}
 	}
 
