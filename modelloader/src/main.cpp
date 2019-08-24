@@ -12,9 +12,15 @@
 // The Windows API is used by including the Windows.h header.
 #include <Windows.h>
 #include <string>
+#include <vector>
+#include <random>
 
 #include "Window.h"
 #include "Shader.h"
+
+#include <assimp/Importer.hpp> // C++ Importer Interface
+#include <assimp/scene.h> // Output data structure
+#include <assimp/postprocess.h> // Post processing flags
 
 // Cube Vertex Data
 float verticesCube[] = {
@@ -61,6 +67,8 @@ float verticesCube[] = {
 	-0.5f,  0.5f, -0.5f, 1.0f, 1.0f, 0.5f
 };
 
+// Function Prototypes
+std::vector<float> GetVertices(const aiNode* node, const aiScene* scene);
 
 // The wWinMain entry point is used with the WINDOWS subsystem.
 // https://docs.microsoft.com/en-us/windows/win32/learnwin32/winmain--the-application-entry-point
@@ -81,6 +89,26 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 	OutputDebugStringA(openGlVersion.c_str());
 
+	Assimp::Importer importer;
+
+	// By default all 3D data is provided in right-handed coordinate system (OpenGL also uses a right-hand coordinate system).
+	// The nodes in the returned hierarchy do not directly store meshes. The meshes are found in the "aiMesh" property of the scene.
+	// Each node simply refers to an index of this array.
+	// A mesh lives inside the referred node's local coordinate system.
+	// If you want the mesh's orientation in global space, you'd have to concatenate the transformations from the referring node and all
+	// of its parents.
+	// Each mesh use a single material only. Parts of the model using different materials will be separate meshes of the same node.
+	// We use aiProcess_Triangulate pre-processing option to split up faces with more than 3 indices into triangles (so other faces of 3 indicies)
+	// We use aiProcess_SortByPType to split up meshes with more than one primitive type into homogeneous sub-meshes.
+	// We use these two post-processing steps because, for real-time 3d rendering, we are only (usually) interested in rendering a set of triangles
+	// This way it will be easy for us to sort / ignore any other primitive type
+	const aiScene* scene = importer.ReadFile("shaders/chair.blend",
+		aiProcess_Triangulate | aiProcess_SortByPType);
+
+	std::vector<float> modelVertices = GetVertices(scene->mRootNode, scene);
+
+	int lol = 0;
+	
 	// The Z-buffer of OpenGL allows OpenGL to decide when to draw over a pixel
 	// and when not to, based on depth testing.
 	// OpenGL stores all depth information in a z-buffer, known as the "depth buffer".
@@ -107,13 +135,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	// Now we bind our generated buffer to the GL_ARRAY_BUFFER target. This essentially means that we will
 	// be using it is a vertex buffer object.
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
+	
 	// Now that we have bound our buffer object to a target, we can start to make OpenGL calls to functions
 	// That affect the state relevant for that object
 	// Here we copy our vertice data to the GPU, to our newly created buffer object.
 	// We also hint to OpenGL that the date most likely won't change. This means that OpenGL can make some assumptions
 	// about the data which can be used to optimize it.
-	glBufferData(GL_ARRAY_BUFFER, sizeof(verticesCube), verticesCube, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, modelVertices.size() * sizeof(float), &modelVertices[0], GL_STATIC_DRAW);
 
 	// In the vertex shader we specified that location 0 accepted a 3D vector as input
 	// OpenGL is very flexible when it comes to how to feed input into that location
@@ -158,7 +186,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	float rotation = 0;
 	float radius = 5.0f;
 	
-	glClearColor(0.0f, 0.f, 0.0f, 1.0f);
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
 	float aliveCounter = 0.0f;
 	
@@ -175,8 +203,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		trans = glm::rotate(trans, glm::radians(rotation), glm::vec3(0.0f, 1.0f, 1.0f));
 
 		// Our view matrix
-		float camX = (sin(aliveCounter) * radius) + sin(aliveCounter) * 3;
-		float camZ = (cos(aliveCounter) * radius) + sin(aliveCounter) * 3;
+		float camX = sin(aliveCounter) * radius;
+		float camZ = cos(aliveCounter) * radius;
 		
 		glm::mat4 view = glm::mat4(1.0f);
 		view = glm::lookAt(
@@ -193,7 +221,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		myShader.setMatrix("view", view);
 		myShader.setMatrix("projection", projection);
 
-		glDrawArrays(GL_TRIANGLES, 0, 36);
+		glDrawArrays(GL_TRIANGLES, 0, modelVertices.size());
 		
 		// When doing realtime applications, it's important to use PeekMessage to look for
 		// and remove potential messages, instead of GetMessage, as GetMessage is blocking.
@@ -231,4 +259,56 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	}
 	
 	return 0;
+}
+
+std::vector<float> GetVertices(const aiNode* node, const aiScene* scene)
+{
+	std::vector<float> nodeVertices{};
+
+	const auto numberOfMeshes = node->mNumMeshes;
+
+	for (unsigned int i = 0; i < numberOfMeshes; i++)
+	{
+		const auto currentMeshIndex = node->mMeshes[i];
+		const auto currentMesh = scene->mMeshes[currentMeshIndex];
+
+		// We are only interested in rendering triangle primitives.
+		// Everything else we ignore for now
+		if (currentMesh->mPrimitiveTypes == aiPrimitiveType_TRIANGLE)
+		{
+			for (unsigned int j = 0; j < currentMesh->mNumVertices; j++)
+			{
+				auto currentVertex = currentMesh->mVertices[j];
+
+				// Position
+				nodeVertices.push_back(currentVertex.x);
+				nodeVertices.push_back(currentVertex.y);
+				nodeVertices.push_back(currentVertex.z);
+
+				// Color
+				std::random_device rd;
+				std::mt19937 mt(rd());
+				std::uniform_real_distribution<double> dist(0.0, 1.0);
+
+				nodeVertices.push_back(dist(mt));
+				nodeVertices.push_back(dist(mt));
+				nodeVertices.push_back(dist(mt));
+			}
+		}
+	}
+
+	// Base Case
+	if (node->mNumChildren == 0)
+		return nodeVertices;
+
+	// Alternative Case
+	const auto numberOfChildren = node->mNumChildren;
+	for (unsigned int i = 0; i < numberOfChildren; i++)
+	{
+		const auto currentChild = node->mChildren[i];
+		auto returnedVertices = GetVertices(currentChild, scene);
+		nodeVertices.insert(nodeVertices.end(), returnedVertices.begin(), returnedVertices.end());
+	}
+
+	return nodeVertices;
 }
