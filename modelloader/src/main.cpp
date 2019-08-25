@@ -22,6 +22,9 @@
 #include <assimp/scene.h> // Output data structure
 #include <assimp/postprocess.h> // Post processing flags
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 // Cube Vertex Data
 float verticesCube[] = {
 	-0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
@@ -72,6 +75,8 @@ std::vector<float> GetVertices(const aiNode* node, const aiScene* scene);
 
 std::vector<unsigned int> indices{};
 
+unsigned int textureObject = 0;
+
 // The wWinMain entry point is used with the WINDOWS subsystem.
 // https://docs.microsoft.com/en-us/windows/win32/learnwin32/winmain--the-application-entry-point
 // This is the entry point we have to use when we want to create windowed applications
@@ -104,7 +109,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	// We use aiProcess_SortByPType to split up meshes with more than one primitive type into homogeneous sub-meshes.
 	// We use these two post-processing steps because, for real-time 3d rendering, we are only (usually) interested in rendering a set of triangles
 	// This way it will be easy for us to sort / ignore any other primitive type
-	const aiScene* scene = importer.ReadFile("shaders/cartoon.fbx",
+	const aiScene* scene = importer.ReadFile("shaders/cowCube.obj",
 		aiProcess_Triangulate | aiProcess_SortByPType);
 
 	auto modelVertices = GetVertices(scene->mRootNode, scene);
@@ -170,11 +175,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	// The currently bound VAO
 
 	// Position attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(float) * 6, (void*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(float) * 5, (void*)0);
 	glEnableVertexAttribArray(0);
 
-	// Color attribute
-	glVertexAttribPointer(1, 3, GL_FLOAT, false, sizeof(float) * 6, (void*)(sizeof(float) * 3));
+	// Texture UV attribute
+	glVertexAttribPointer(1, 2, GL_FLOAT, false, sizeof(float) * 5, (void*)(sizeof(float) * 3));
 	glEnableVertexAttribArray(1);
 
 	// Cleanup
@@ -188,9 +193,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	myShader.activate();
 
 	glBindVertexArray(VAO);
-
+	glBindTexture(GL_TEXTURE_2D, textureObject);
+	
 	float rotation = 0;
-	float radius = 800.0f;
+	float radius = 10.0f;
 	
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -226,10 +232,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		myShader.setMatrix("model", trans);
 		myShader.setMatrix("view", view);
 		myShader.setMatrix("projection", projection);
-
+		
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		// glDrawArrays(GL_TRIANGLES, 0, modelVertices.size());
-
 		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
 		
 		// When doing realtime applications, it's important to use PeekMessage to look for
@@ -245,7 +249,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		{
 			// If the message is WM_QUIT, exit the while loop
 			// WM_QUIT indicates a request to terminate an application.
-			// 
 			if (msg.message == WM_QUIT)
 				break;
 			
@@ -289,6 +292,40 @@ std::vector<float> GetVertices(const aiNode* node, const aiScene* scene)
 		{
 			auto currentGlobalCount = globalIndiceCount;
 			
+			// Materials
+			auto theMaterialIndex = currentMesh->mMaterialIndex;
+			auto theMaterial = scene->mMaterials[theMaterialIndex];
+
+			aiString path;
+			if (aiGetMaterialTexture(theMaterial, aiTextureType_DIFFUSE, 0, &path) == aiReturn_SUCCESS)
+			{
+				auto pathToImage = std::string{"shaders/"} + std::string{ path.C_Str() };
+
+				glGenTextures(1, &textureObject);
+				glBindTexture(GL_TEXTURE_2D, textureObject);
+
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+				int width, height, nrChannels;
+				unsigned char* data = stbi_load(pathToImage.c_str(), &width, &height, &nrChannels, 0);
+				if (data)
+				{
+					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+					glGenerateMipmap(GL_TEXTURE_2D);
+				}
+				else
+				{
+					OutputDebugStringA("Failed to load mesh texture!");
+					assert(false);
+				}
+			}
+
+			auto uvChannel = currentMesh->mTextureCoords[0];
+			
 			for (unsigned int j = 0; j < currentMesh->mNumVertices; j++)
 			{
 				auto currentVertex = currentMesh->mVertices[j];
@@ -299,15 +336,11 @@ std::vector<float> GetVertices(const aiNode* node, const aiScene* scene)
 				nodeVertices.push_back(currentVertex.z);
 
 				globalIndiceCount += 1;
-				
-				// Color
-				std::random_device rd;
-				std::mt19937 mt(rd());
-				std::uniform_real_distribution<double> dist(0.0, 1.0);
 
-				nodeVertices.push_back(dist(mt));
-				nodeVertices.push_back(dist(mt));
-				nodeVertices.push_back(dist(mt));
+				// Texture Coordinate
+				auto textureCoordinate = uvChannel[j];
+				nodeVertices.push_back(textureCoordinate.x);
+				nodeVertices.push_back(textureCoordinate.y);
 			}
 
 			for (unsigned int q = 0; q < currentMesh->mNumFaces; q++)

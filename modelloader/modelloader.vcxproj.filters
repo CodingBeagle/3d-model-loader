@@ -15,5 +15,6 @@
     <ClInclude Include="headers\Window.h" />
     <ClInclude Include="headers\Shader.h" />
     <ClInclude Include="headers\Mesh.h" />
+    <ClInclude Include="headers\stb_image.h" />
   </ItemGroup>
 </Project>
