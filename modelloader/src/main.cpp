@@ -109,8 +109,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	// We use aiProcess_SortByPType to split up meshes with more than one primitive type into homogeneous sub-meshes.
 	// We use these two post-processing steps because, for real-time 3d rendering, we are only (usually) interested in rendering a set of triangles
 	// This way it will be easy for us to sort / ignore any other primitive type
-	const aiScene* scene = importer.ReadFile("shaders/cowCube.obj",
-		aiProcess_Triangulate | aiProcess_SortByPType);
+	const aiScene* scene = importer.ReadFile("shaders/weirdCube.obj",
+		aiProcess_Triangulate | aiProcess_SortByPType | aiProcess_FlipUVs);
 
 	auto modelVertices = GetVertices(scene->mRootNode, scene);
 	
@@ -196,7 +196,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	glBindTexture(GL_TEXTURE_2D, textureObject);
 	
 	float rotation = 0;
-	float radius = 10.0f;
+	float radius = 7.0f;
 	
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -220,7 +220,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		
 		glm::mat4 view = glm::mat4(1.0f);
 		view = glm::lookAt(
-			glm::vec3(camX, 2.0f, camZ),
+			glm::vec3(camX, 6.0f, camZ),
 			glm::vec3(0.0f, 0.0f, 0.0f),
 			glm::vec3(0.0f, 1.0f, 0.0f)
 		);
@@ -286,6 +286,8 @@ std::vector<float> GetVertices(const aiNode* node, const aiScene* scene)
 		const auto currentMeshIndex = node->mMeshes[i];
 		const auto currentMesh = scene->mMeshes[currentMeshIndex];
 
+		auto rofl = currentMesh->mNumVertices;
+
 		// We are only interested in rendering triangle primitives.
 		// Everything else we ignore for now
 		if (currentMesh->mPrimitiveTypes == aiPrimitiveType_TRIANGLE)
@@ -301,20 +303,52 @@ std::vector<float> GetVertices(const aiNode* node, const aiScene* scene)
 			{
 				auto pathToImage = std::string{"shaders/"} + std::string{ path.C_Str() };
 
+				// First step in loading a texture is to create a Texture Object.
+				// By this point it won't have any dimensionality or type.
 				glGenTextures(1, &textureObject);
+
+				// The dimensionality or type is determined the first time you bind the texture
+				// To a texture target using glBindTexture. Here, we bind it to the GL_TEXTURE_2D,
+				// Making it a 2D texture.
 				glBindTexture(GL_TEXTURE_2D, textureObject);
 
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+				// Texture coordinates are given in the space of 0.0 to 1.0 on each axis.
+				// If the texture coordinates provided to OpenGL's built-in functions are somehow
+				// Outside of this range, they have to be brought back into the range. How this is done
+				// Can be controlled by the parameters GL_TEXTURE_WRAP_S and GL_TEXTURE_WRAP_T.
+				// When the mode is GL_CLAMP_TO_BORDER, an attempt to read outside the 0.0 to 1.0 range
+				// Will result in the constant border color for the texture to be used as a final value.
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
+				// GL_TEXTURE_MIN_FILTER controls how texels are constructed when the mipmap
+				// level is greater than zero. There are a total of six setting available for
+				// this parameter.
+				// Choosing GL_NEAREST or GL_LINEAR will disable mipmapping and will cause OpenGL
+				// to only use the base level (level 0).
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 				int width, height, nrChannels;
-				unsigned char* data = stbi_load(pathToImage.c_str(), &width, &height, &nrChannels, 0);
+				const auto data = stbi_load(pathToImage.c_str(), &width, &height, &nrChannels, 0);
 				if (data)
 				{
-					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+					// After having created a texture object and specified its dimensionality,
+					// We need to specify storage and data for the texture.
+					// glTexImage2D is a MUTABLE texture image specification command.
+					// It is, however, best practice to declare texture storage as immutable (meaning
+					// they can't be resized or have their format changed, etc...).
+					// glTexImage2D can also (optionally) provide the initial data.
+					// InternalFormat = Specifies the format with which OpenGL should store the texels
+					// In the texture.
+					// The format of the initial texel data is given by the combination of FORMAT and TYPE.
+					// OpenGL will convert the specified data from this format into the internal format
+					// Specified by InternalFormat.
+					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+					// OpenGL provides a function to automatically generate all of the mipmaps for a texture.
+					// It's up to the OpenGL implementation to provide a mechanism to downsample the high
+					// resolution images to produce the lower resolution mipmaps.
 					glGenerateMipmap(GL_TEXTURE_2D);
 				}
 				else
@@ -322,6 +356,9 @@ std::vector<float> GetVertices(const aiNode* node, const aiScene* scene)
 					OutputDebugStringA("Failed to load mesh texture!");
 					assert(false);
 				}
+
+				// Clean Up
+				glBindTexture(GL_TEXTURE_2D, 0);
 			}
 
 			auto uvChannel = currentMesh->mTextureCoords[0];
