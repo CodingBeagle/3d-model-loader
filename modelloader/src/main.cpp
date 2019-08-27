@@ -22,6 +22,8 @@
 #include <assimp/scene.h> // Output data structure
 #include <assimp/postprocess.h> // Post processing flags
 
+#include "Mesh.hpp"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -96,23 +98,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 	OutputDebugStringA(openGlVersion.c_str());
 
-	Assimp::Importer importer;
-
-	// By default all 3D data is provided in right-handed coordinate system (OpenGL also uses a right-hand coordinate system).
-	// The nodes in the returned hierarchy do not directly store meshes. The meshes are found in the "aiMesh" property of the scene.
-	// Each node simply refers to an index of this array.
-	// A mesh lives inside the referred node's local coordinate system.
-	// If you want the mesh's orientation in global space, you'd have to concatenate the transformations from the referring node and all
-	// of its parents.
-	// Each mesh use a single material only. Parts of the model using different materials will be separate meshes of the same node.
-	// We use aiProcess_Triangulate pre-processing option to split up faces with more than 3 indices into triangles (so other faces of 3 indicies)
-	// We use aiProcess_SortByPType to split up meshes with more than one primitive type into homogeneous sub-meshes.
-	// We use these two post-processing steps because, for real-time 3d rendering, we are only (usually) interested in rendering a set of triangles
-	// This way it will be easy for us to sort / ignore any other primitive type
-	const aiScene* scene = importer.ReadFile("shaders/weirdCube.obj",
-		aiProcess_Triangulate | aiProcess_SortByPType | aiProcess_FlipUVs);
-
-	auto modelVertices = GetVertices(scene->mRootNode, scene);
+	Mesh myAwesomeMesh{ "shaders/export.beagleasset" };
+	
+	auto modelVertices = std::vector<float>{};
 	
 	// The Z-buffer of OpenGL allows OpenGL to decide when to draw over a pixel
 	// and when not to, based on depth testing.
@@ -411,3 +399,4 @@ std::vector<float> GetVertices(const aiNode* node, const aiScene* scene)
 
 	return nodeVertices;
 }
+

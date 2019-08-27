@@ -14,7 +14,7 @@
     <ClInclude Include="libs\glad\include\glad\glad_wgl.h" />
     <ClInclude Include="headers\Window.h" />
     <ClInclude Include="headers\Shader.h" />
-    <ClInclude Include="headers\Mesh.h" />
     <ClInclude Include="headers\stb_image.h" />
+    <ClInclude Include="headers\Mesh.hpp" />
   </ItemGroup>
 </Project>

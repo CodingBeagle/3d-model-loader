@@ -1,69 +1,58 @@
-#include "Mesh.h"
+#include "Mesh.hpp"
 
-Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned> indices, std::vector<Texture> textures)
+Mesh::Mesh(std::string filepath)
 {
-	this->vertices = vertices;
-	this->indices = indices;
-	this->textures = textures;
+	vertices = std::vector<float>{};
+	indices = std::vector<unsigned>{};
 
-	setupMesh();
+	LoadMesh(filepath);
 }
 
-void Mesh::Draw(Shader shader)
+void Mesh::Draw()
 {
-	unsigned int diffuseNr = 1;
-	unsigned int specularNr = 1;
+}
 
-	for (unsigned int i = 0; i < textures.size(); i++)
+void Mesh::LoadMesh(const std::string filepath)
+{
+	// ifstreams are streams used for reading from a file
+	// When you provide a file path in the constructor, the stream will be attach to that file
+	// The second parameter, the mode, is in this case specified as ios::in (the mode for reading a file)
+	std::ifstream assetFile{filepath, std::ios::in};
+
+	if (!assetFile.good())
+		assert(false);
+
+	std::string currentLine{};
+	while (!assetFile.eof())
 	{
-		glActiveTexture(GL_TEXTURE0 + i);
+		std::getline(assetFile, currentLine);
+		const auto startSymbol = currentLine.front();
 
-		std::string number;
-		std::string name = textures[i].type;
+		if (std::tolower(startSymbol) == 'v')
+		{
+			currentLine.erase(0, 2);
 
-		if (name == "texture_diffuse")
-			number = std::to_string(diffuseNr++);
-		else if (name == "texture_specular")
-			number = std::to_string(specularNr);
+			std::string currentCharacter{};
+			std::stringstream lol{currentLine};
+			std::vector<std::string> values{};
+			while(std::getline(lol, currentCharacter, ','))
+			{
+				values.push_back(currentCharacter);
+			}
 
-		shader.setFloat(("material." + name + number).c_str(), i);
-		glBindTexture(GL_TEXTURE_2D, textures[i].id);
+			float vertex_pos_x = std::stof(values[0]);
+			float vertex_pos_y = std::stof(values[1]);
+			float vertex_pos_z = std::stof(values[2]);
+
+			vertices.push_back(vertex_pos_x);
+			vertices.push_back(vertex_pos_y);
+			vertices.push_back(vertex_pos_z);
+			
+			float uv_map_x = std::stof(values[3]);
+			float uv_map_y = std::stof(values[4]);
+
+			vertices.push_back(uv_map_x);
+			vertices.push_back(uv_map_y);
+		}
 	}
-
-	glActiveTexture(GL_TEXTURE0);
-
-	// Draw Mesh
-	glBindVertexArray(VAO);
-	glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);
-}
-
-void Mesh::setupMesh()
-{
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-	glGenBuffers(1, &EBO);
-
-	glBindVertexArray(VAO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
-
-	// Vertex Positions
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-	
-	// Vertex Normals
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
-	
-	// Vertex texture coordinates
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, TexCoords));
-
-	glBindVertexArray(0);
 }
