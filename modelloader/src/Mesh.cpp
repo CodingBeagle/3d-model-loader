@@ -7,6 +7,7 @@ Mesh::Mesh(std::string filepath)
 
 	LoadMesh(filepath);
 	GenerateTexture();
+	UploadVertexData();
 }
 
 std::string Mesh::GetTexturePath() const
@@ -29,8 +30,36 @@ unsigned Mesh::GetTextureObject() const
 	return textureObject;
 }
 
-void Mesh::Draw()
+float rotation = 0;
+
+void Mesh::Draw(Shader shader)
 {
+	// Prepare texture
+	glBindTexture(GL_TEXTURE_2D, textureObject);
+	
+	// Prepare vertex data
+	glBindVertexArray(vao);
+
+	// Transform
+	modelMatrix = glm::mat4{ 1.0f };
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(pos_x, pos_y, pos_z));
+	modelMatrix = glm::rotate(modelMatrix, glm::radians(rotation), glm::vec3(0.0f, 1.0f, 1.0f));
+	shader.setMatrix("model", modelMatrix);
+	
+	// Render
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+	glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
+
+	// Cleanup
+	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void Mesh::SetPosition(float x, float y, float z)
+{
+	pos_x = x;
+	pos_y = y;
+	pos_z = z;
 }
 
 void Mesh::LoadMesh(const std::string filepath)
@@ -163,4 +192,70 @@ void Mesh::GenerateTexture()
 
 	// Clean Up
 	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void Mesh::UploadVertexData()
+{
+	// OpenGl Core REQUIRES us to use Vertex Array Objects (VAOs)
+	// VAOs are OpenGL objects which will save state related to these calls:
+	// -- Calls to glEnableVertexAttribArray or glDisableVertexAttribArray
+	// -- Vertex attribute configurations via glVertexAttribPointer
+	// -- Vertex buffer objects associated with vertex attributes by calls to glVertexAttribPointer
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	// Generate EBO
+	glGenBuffers(1, &ebo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+
+	// We generate an OpenGL buffer object
+	// OpenGL buffers can be used for many things. They are simply allocated memory which can be used
+	// to store whatever you want
+	glGenBuffers(1, &vbo);
+
+	// Now we bind our generated buffer to the GL_ARRAY_BUFFER target. This essentially means that we will
+	// be using it is a vertex buffer object.
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+	// Now that we have bound our buffer object to a target, we can start to make OpenGL calls to functions
+	// That affect the state relevant for that object
+	// Here we copy our vertice data to the GPU, to our newly created buffer object.
+	// We also hint to OpenGL that the date most likely won't change. This means that OpenGL can make some assumptions
+	// about the data which can be used to optimize it.
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), &vertices[0], GL_STATIC_DRAW);
+
+	// In the vertex shader we specified that location 0 accepted a 3D vector as input
+	// OpenGL is very flexible when it comes to how to feed input into that location
+	// But that also means we have to describe how the buffer is structured
+	// So that OpenGL knows how to take the x, y and z number of each vertex described
+	// in our array
+	// Parameter 1: The index of the location we want to input to
+	// Parameter 2: The number of components per generic vertex attribute
+	// -- We have 3 components, since our input is a Vec3 in the vertex shader
+	// Parameter 3: The data type of each component.
+	// -- They are 32-bit floats
+	// Parameter 4: Should data be normalized. Should be FALSE for floats.
+	// Parameter 5: The byte offset between each consecutive generic vertex attribute.
+	// -- Our array is tightly packed, so 0 byte offset between them
+	// Parameter 6: The byte offset of the first component of the first generic vertex
+	// Attribute.
+	// -- This is 0 for us. It begins at the start of the array.
+	// NOTICE: glVertexAttribPointer reads the currently bound buffer in GL_ARRAY_BUFFER
+	// and stores it in the VAO, so unbinding the buffer in GL_ARRAY_BUFFER will not affect
+	// The currently bound VAO
+
+	// Position attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(float) * 5, (void*)0);
+	glEnableVertexAttribArray(0);
+
+	// Texture UV attribute
+	glVertexAttribPointer(1, 2, GL_FLOAT, false, sizeof(float) * 5, (void*)(sizeof(float) * 3));
+	glEnableVertexAttribArray(1);
+
+	// Cleanup
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glDisableVertexAttribArray(0);
 }

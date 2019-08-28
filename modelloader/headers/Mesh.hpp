@@ -23,6 +23,12 @@
 
 #include <glad/glad.h>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include "Shader.h"
+
 class Mesh
 {
 public:
@@ -31,12 +37,21 @@ public:
 	std::vector<float> GetVertices() const;
 	std::vector<unsigned> GetIndices() const;
 	unsigned GetTextureObject() const;
-	void Draw();
+	void Draw(Shader shader);
+	void SetPosition(float x, float y, float z);
 private:
+	glm::mat4 modelMatrix;
 	void LoadMesh(std::string filepath);
 	void GenerateTexture();
+	void UploadVertexData();
 	std::vector<float> vertices;
 	std::vector<unsigned> indices;
 	std::string texturePath;
 	unsigned textureObject;
+	unsigned int vao;
+	unsigned int ebo;
+	unsigned int vbo;
+	float pos_x;
+	float pos_y;
+	float pos_z;
 };
