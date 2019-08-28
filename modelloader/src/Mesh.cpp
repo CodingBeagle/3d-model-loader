@@ -6,6 +6,7 @@ Mesh::Mesh(std::string filepath)
 	indices = std::vector<unsigned>{};
 
 	LoadMesh(filepath);
+	GenerateTexture();
 }
 
 std::string Mesh::GetTexturePath() const
@@ -21,6 +22,11 @@ std::vector<float> Mesh::GetVertices() const
 std::vector<unsigned> Mesh::GetIndices() const
 {
 	return indices;
+}
+
+unsigned Mesh::GetTextureObject() const
+{
+	return textureObject;
 }
 
 void Mesh::Draw()
@@ -93,9 +99,68 @@ void Mesh::LoadMesh(const std::string filepath)
 			} else if (std::tolower(startSymbol) == 't')
 			{
 				currentLine.erase(0, 2);
-
 				texturePath = std::string{ "shaders/" } + std::string{currentLine};
 			}
 		}
 	}
+}
+
+void Mesh::GenerateTexture()
+{
+	// First step in loading a texture is to create a Texture Object.
+	// By this point it won't have any dimensionality or type.
+	glGenTextures(1, &textureObject);
+
+	// The dimensionality or type is determined the first time you bind the texture
+	// To a texture target using glBindTexture. Here, we bind it to the GL_TEXTURE_2D,
+	// Making it a 2D texture.
+	glBindTexture(GL_TEXTURE_2D, textureObject);
+
+	// Texture coordinates are given in the space of 0.0 to 1.0 on each axis.
+	// If the texture coordinates provided to OpenGL's built-in functions are somehow
+	// Outside of this range, they have to be brought back into the range. How this is done
+	// Can be controlled by the parameters GL_TEXTURE_WRAP_S and GL_TEXTURE_WRAP_T.
+	// When the mode is GL_CLAMP_TO_BORDER, an attempt to read outside the 0.0 to 1.0 range
+	// Will result in the constant border color for the texture to be used as a final value.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+	// GL_TEXTURE_MIN_FILTER controls how texels are constructed when the mipmap
+	// level is greater than zero. There are a total of six setting available for
+	// this parameter.
+	// Choosing GL_NEAREST or GL_LINEAR will disable mipmapping and will cause OpenGL
+	// to only use the base level (level 0).
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	int width, height, nrChannels;
+	const auto data = stbi_load(texturePath.c_str(), &width, &height, &nrChannels, 0);
+	if (data)
+	{
+		// After having created a texture object and specified its dimensionality,
+		// We need to specify storage and data for the texture.
+		// glTexImage2D is a MUTABLE texture image specification command.
+		// It is, however, best practice to declare texture storage as immutable (meaning
+		// they can't be resized or have their format changed, etc...).
+		// glTexImage2D can also (optionally) provide the initial data.
+		// InternalFormat = Specifies the format with which OpenGL should store the texels
+		// In the texture.
+		// The format of the initial texel data is given by the combination of FORMAT and TYPE.
+		// OpenGL will convert the specified data from this format into the internal format
+		// Specified by InternalFormat.
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+		// OpenGL provides a function to automatically generate all of the mipmaps for a texture.
+		// It's up to the OpenGL implementation to provide a mechanism to downsample the high
+		// resolution images to produce the lower resolution mipmaps.
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else
+	{
+		OutputDebugStringA("Failed to load mesh texture!");
+		assert(false);
+	}
+
+	// Clean Up
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
