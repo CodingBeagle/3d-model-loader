@@ -94,7 +94,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	Mesh myAwesomeMesh{ "shaders/export.beagleasset" };
 	myAwesomeMesh.SetPosition(3, 0, 0);
 
-	Mesh myAwesomeMesh2{ "shaders/export.beagleasset" };
+	Mesh myAwesomeMesh2{ "shaders/cylinder.beagleasset" };
 	myAwesomeMesh2.SetPosition(0, 0, 0);
 	
 	// The Z-buffer of OpenGL allows OpenGL to decide when to draw over a pixel
