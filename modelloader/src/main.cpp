@@ -109,7 +109,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	Shader myShader("./shaders/transvertex.glsl", "./shaders/fragment.glsl");
 	myShader.activate();
 	
-	
 	float radius = 7.0f;
 	
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
